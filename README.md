@@ -4,7 +4,7 @@ Auto-generated Chatwoot CLI from the OpenAPI schema. Designed for LLM discovery 
 
 ## Install
 
-### Install script (macOS arm64 only)
+### Install script (macOS arm64 + Linux x86_64)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/radjathaher/chatwoot-cli/main/scripts/install.sh | bash
