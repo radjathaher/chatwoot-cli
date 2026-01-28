@@ -7,6 +7,9 @@ on:
         description: "Release tag (e.g. v0.1.0)"
         required: true
         type: string
+  push:
+    tags:
+      - "v*"
 
 permissions:
   contents: write
@@ -14,6 +17,7 @@ permissions:
 env:
   BIN_NAME: chatwoot
   ASSET_PREFIX: chatwoot-cli
+  RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
   build:
@@ -46,7 +50,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          version="${{ inputs.tag }}"
+          version="${{ env.RELEASE_TAG }}"
           version="${version#v}"
           mkdir -p dist
           bin="target/${{ matrix.rust_target }}/release/${BIN_NAME}"
@@ -77,6 +81,6 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ inputs.tag }}
+          tag_name: ${{ env.RELEASE_TAG }}
           files: dist/*.tar.gz
           generate_release_notes: true
