@@ -57,13 +57,7 @@ fn run() -> Result<()> {
         ));
     }
 
-    let mut path = op.path.clone();
-    for param in op.params.iter().filter(|p| p.location == "path") {
-        let value = op_matches
-            .get_one::<String>(&param.flag)
-            .ok_or_else(|| anyhow!("missing --{}", param.flag))?;
-        path = path.replace(&format!("{{{}}}", param.name), value);
-    }
+    let path = replace_path_params(&op.path, &op.params, op_matches)?;
 
     let mut query = Vec::new();
     for param in op.params.iter().filter(|p| p.location == "query") {
@@ -382,6 +376,73 @@ fn render_output(response: &http::ResponseData, raw: bool) -> Result<Value> {
     }
 
     Ok(parsed.unwrap_or(Value::String(response.body.clone())))
+}
+
+fn replace_path_params(
+    path: &str,
+    params: &[ParamDef],
+    matches: &clap::ArgMatches,
+) -> Result<String> {
+    let mut values = Map::new();
+    for param in params.iter().filter(|p| p.location == "path") {
+        let value = matches
+            .get_one::<String>(&param.flag)
+            .ok_or_else(|| anyhow!("missing --{}", param.flag))?;
+        values.insert(param.name.clone(), Value::String(value.clone()));
+    }
+
+    let mut out = path.to_string();
+    for placeholder in extract_placeholders(path) {
+        let value = if let Some(v) = values.get(&placeholder) {
+            v.as_str().unwrap_or("").to_string()
+        } else if let Some(v) = values.get(&format!("{placeholder}_id")) {
+            v.as_str().unwrap_or("").to_string()
+        } else if placeholder == "id" && values.len() == 1 {
+            values
+                .values()
+                .next()
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string()
+        } else {
+            let matches: Vec<String> = values
+                .iter()
+                .filter(|(name, _)| {
+                    name.ends_with(&format!("_{placeholder}")) || name.contains(&placeholder)
+                })
+                .filter_map(|(_, v)| v.as_str().map(|s| s.to_string()))
+                .collect();
+            if matches.len() == 1 {
+                matches[0].clone()
+            } else {
+                return Err(anyhow!("no value for path placeholder {{{placeholder}}}"));
+            }
+        };
+        out = out.replace(&format!("{{{placeholder}}}"), &value);
+    }
+
+    Ok(out)
+}
+
+fn extract_placeholders(path: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut chars = path.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '{' {
+            let mut name = String::new();
+            while let Some(&next) = chars.peek() {
+                chars.next();
+                if next == '}' {
+                    break;
+                }
+                name.push(next);
+            }
+            if !name.is_empty() {
+                out.push(name);
+            }
+        }
+    }
+    out
 }
 
 fn write_stdout_line(line: &str) -> Result<()> {

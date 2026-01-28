@@ -36,7 +36,8 @@ impl HttpClient {
         body: Option<Value>,
     ) -> Result<ResponseData> {
         let url = join_url(&self.base_url, path);
-        let method = Method::from_bytes(method.as_bytes())
+        let method_upper = method.to_uppercase();
+        let method = Method::from_bytes(method_upper.as_bytes())
             .with_context(|| format!("invalid method {method}"))?;
 
         let mut req = self.client.request(method, url);
@@ -74,7 +75,8 @@ impl HttpClient {
         body: Vec<(String, String)>,
     ) -> Result<ResponseData> {
         let url = join_url(&self.base_url, path);
-        let method = Method::from_bytes(method.as_bytes())
+        let method_upper = method.to_uppercase();
+        let method = Method::from_bytes(method_upper.as_bytes())
             .with_context(|| format!("invalid method {method}"))?;
 
         let mut req = self.client.request(method, url);
